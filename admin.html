@@ -239,7 +239,7 @@
       </div>
       <div class="toolbar">
         <button class="secondary" id="refreshBtn">刷新</button>
-        <button class="secondary" id="soundBtn">开启声音</button>
+        <button class="secondary" id="soundBtn">声音已开</button>
       </div>
     </header>
 
@@ -274,9 +274,10 @@
     const toast = document.querySelector("#toast");
     let allOrders = [];
     let currentStatus = "all";
-    let soundEnabled = false;
+    let soundEnabled = true;
     let ordersLoadedOnce = false;
     let refreshTimer = null;
+    let audioCtx = null;
 
     function showToast(message) {
       toast.textContent = message;
@@ -293,17 +294,45 @@
       return new Date(value).toLocaleString("zh-CN", { hour12: false });
     }
 
+    function unlockSound() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function speakNewOrder() {
+      if (!soundEnabled) return;
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance("来单了");
+        utterance.lang = "zh-CN";
+        utterance.rate = 1;
+        utterance.volume = 1;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
     function beep() {
       if (!soundEnabled) return;
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      unlockSound();
+      const ctx = audioCtx;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.frequency.value = 880;
-      gain.gain.value = .06;
+      gain.gain.value = .08;
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      window.setTimeout(() => { osc.stop(); ctx.close(); }, 220);
+      window.setTimeout(() => osc.stop(), 260);
+    }
+
+    function notifyNewOrder(orderNo) {
+      beep();
+      speakNewOrder();
+      showToast(`新订单：${orderNo}`);
     }
 
     function visibleOrders() {
@@ -369,8 +398,7 @@
         const existingIds = new Set(allOrders.map(order => order.id));
         const newOrders = nextOrders.filter(order => !existingIds.has(order.id));
         if (newOrders.length) {
-          beep();
-          showToast(`新订单：${newOrders[0].order_no}`);
+          notifyNewOrder(newOrders[0].order_no);
         }
       }
       allOrders = nextOrders;
@@ -395,8 +423,7 @@
           if (allOrders.some(order => order.id === payload.new.id)) return;
           allOrders = [payload.new, ...allOrders];
           render();
-          beep();
-          showToast(`新订单：${payload.new.order_no}`);
+          notifyNewOrder(payload.new.order_no);
         })
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, payload => {
           allOrders = allOrders.map(order => order.id === payload.new.id ? payload.new : order);
@@ -418,6 +445,7 @@
       }
       login.hidden = true;
       app.hidden = false;
+      unlockSound();
       loadOrders();
       subscribe();
       startAutoRefresh();
@@ -427,7 +455,11 @@
     document.querySelector("#soundBtn").addEventListener("click", event => {
       soundEnabled = !soundEnabled;
       event.target.textContent = soundEnabled ? "声音已开" : "开启声音";
-      if (soundEnabled) beep();
+      if (soundEnabled) {
+        unlockSound();
+        beep();
+        speakNewOrder();
+      }
     });
 
     document.querySelector("#filters").addEventListener("click", event => {
