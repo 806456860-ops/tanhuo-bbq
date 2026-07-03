@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>炭火小巷商家后台</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --ink: #1f2328;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --brand: #d74722;
+      --ok: #15803d;
+      --warn: #b45309;
+      --bad: #b91c1c;
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    button, input { font: inherit; }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .panel,
+    .order {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .login {
+      max-width: 360px;
+      margin: 12vh auto;
+      padding: 22px;
+    }
+
+    .login input {
+      width: 100%;
+      margin: 14px 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: #fff;
+      background: var(--brand);
+      font-weight: 800;
+    }
+
+    button.secondary {
+      color: var(--ink);
+      background: #eef0f3;
+    }
+
+    button.ok { background: var(--ok); }
+    button.bad { background: var(--bad); }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: var(--muted);
+      background: #eef0f3;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .pill.active {
+      color: #fff;
+      background: var(--brand);
+    }
+
+    .grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .order {
+      padding: 14px;
+    }
+
+    .order-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+
+    .order-no {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .status {
+      border-radius: 999px;
+      padding: 4px 9px;
+      color: #fff;
+      background: var(--warn);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .status.accepted { background: #2563eb; }
+    .status.done { background: var(--ok); }
+    .status.cancelled { background: var(--bad); }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .meta b {
+      display: block;
+      color: var(--ink);
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+
+    .items {
+      display: grid;
+      gap: 6px;
+      margin: 12px 0;
+    }
+
+    .item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .total {
+      color: var(--brand);
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .empty {
+      padding: 36px 16px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: #fff;
+      background: #111827;
+      opacity: 0;
+      transition: opacity .2s ease;
+    }
+
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 720px) {
+      header { align-items: flex-start; flex-direction: column; }
+      .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .wrap { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="panel login" id="login">
+    <h1>商家后台</h1>
+    <div class="sub">输入后台密码查看订单</div>
+    <input id="pin" type="password" inputmode="numeric" placeholder="后台密码">
+    <button id="loginBtn">进入后台</button>
+  </section>
+
+  <main class="wrap" id="app" hidden>
+    <header>
+      <div>
+        <h1>炭火小巷订单</h1>
+        <div class="sub" id="summary">正在加载订单</div>
+      </div>
+      <div class="toolbar">
+        <button class="secondary" id="refreshBtn">刷新</button>
+        <button class="secondary" id="soundBtn">开启声音</button>
+      </div>
+    </header>
+
+    <nav class="toolbar" id="filters">
+      <button class="pill active" data-status="all">全部</button>
+      <button class="pill" data-status="new">新订单</button>
+      <button class="pill" data-status="accepted">已接单</button>
+      <button class="pill" data-status="done">已完成</button>
+      <button class="pill" data-status="cancelled">已取消</button>
+    </nav>
+
+    <section class="grid" id="orders"></section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const config = window.BBQ_CONFIG || {};
+    const statusText = {
+      new: "新订单",
+      accepted: "已接单",
+      done: "已完成",
+      cancelled: "已取消"
+    };
+
+    const dbReady = Boolean(config.SUPABASE_URL && config.SUPABASE_ANON_KEY);
+    const db = dbReady ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
+    const login = document.querySelector("#login");
+    const app = document.querySelector("#app");
+    const ordersEl = document.querySelector("#orders");
+    const summary = document.querySelector("#summary");
+    const toast = document.querySelector("#toast");
+    let allOrders = [];
+    let currentStatus = "all";
+    let soundEnabled = false;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2400);
+    }
+
+    function money(value) {
+      return `¥${Number(value || 0).toFixed(0)}`;
+    }
+
+    function fmtTime(value) {
+      return new Date(value).toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function beep() {
+      if (!soundEnabled) return;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.value = .06;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      window.setTimeout(() => { osc.stop(); ctx.close(); }, 220);
+    }
+
+    function visibleOrders() {
+      return currentStatus === "all" ? allOrders : allOrders.filter(order => order.status === currentStatus);
+    }
+
+    function render() {
+      const visible = visibleOrders();
+      const newCount = allOrders.filter(order => order.status === "new").length;
+      summary.textContent = `共 ${allOrders.length} 单，新订单 ${newCount} 单`;
+      if (!visible.length) {
+        ordersEl.innerHTML = `<div class="panel empty">暂无订单</div>`;
+        return;
+      }
+      ordersEl.innerHTML = visible.map(order => {
+        const items = Array.isArray(order.items) ? order.items : [];
+        return `
+          <article class="order">
+            <div class="order-top">
+              <div>
+                <div class="order-no">${order.order_no}</div>
+                <div class="sub">${fmtTime(order.created_at)}</div>
+              </div>
+              <span class="status ${order.status}">${statusText[order.status] || order.status}</span>
+            </div>
+            <div class="meta">
+              <div><b>${order.customer_name}</b>顾客</div>
+              <div><b>${order.phone}</b>电话</div>
+              <div><b>${order.dining_type}</b>方式</div>
+              <div><b class="total">${money(order.total)}</b>合计</div>
+            </div>
+            <div class="items">
+              ${items.map(item => `<div class="item"><span>${item.name} x ${item.count}</span><b>${money(item.subtotal)}</b></div>`).join("")}
+            </div>
+            ${order.note ? `<div class="sub">备注：${order.note}</div>` : ""}
+            <div class="actions">
+              <button class="ok" data-action="accepted" data-id="${order.id}">接单</button>
+              <button data-action="done" data-id="${order.id}">完成</button>
+              <button class="bad" data-action="cancelled" data-id="${order.id}">取消</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function loadOrders() {
+      if (!dbReady) {
+        ordersEl.innerHTML = `<div class="panel empty">还没有配置 Supabase URL 和 anon key。</div>`;
+        summary.textContent = "订单系统未配置";
+        return;
+      }
+      const { data, error } = await db
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) {
+        ordersEl.innerHTML = `<div class="panel empty">读取失败：${error.message}</div>`;
+        return;
+      }
+      allOrders = data || [];
+      render();
+    }
+
+    async function updateStatus(id, status) {
+      const { error } = await db.from("orders").update({ status }).eq("id", id);
+      if (error) {
+        showToast(`更新失败：${error.message}`);
+        return;
+      }
+      allOrders = allOrders.map(order => order.id === id ? { ...order, status } : order);
+      render();
+    }
+
+    function subscribe() {
+      if (!dbReady) return;
+      db.channel("orders-realtime")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, payload => {
+          allOrders = [payload.new, ...allOrders];
+          render();
+          beep();
+          showToast(`新订单：${payload.new.order_no}`);
+        })
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, payload => {
+          allOrders = allOrders.map(order => order.id === payload.new.id ? payload.new : order);
+          render();
+        })
+        .subscribe();
+    }
+
+    document.querySelector("#loginBtn").addEventListener("click", () => {
+      const pin = document.querySelector("#pin").value.trim();
+      if (pin !== String(config.ADMIN_PIN || "")) {
+        showToast("密码不对");
+        return;
+      }
+      login.hidden = true;
+      app.hidden = false;
+      loadOrders();
+      subscribe();
+    });
+
+    document.querySelector("#refreshBtn").addEventListener("click", loadOrders);
+    document.querySelector("#soundBtn").addEventListener("click", event => {
+      soundEnabled = !soundEnabled;
+      event.target.textContent = soundEnabled ? "声音已开" : "开启声音";
+      if (soundEnabled) beep();
+    });
+
+    document.querySelector("#filters").addEventListener("click", event => {
+      const status = event.target.dataset.status;
+      if (!status) return;
+      currentStatus = status;
+      document.querySelectorAll(".pill").forEach(button => button.classList.toggle("active", button.dataset.status === status));
+      render();
+    });
+
+    ordersEl.addEventListener("click", event => {
+      const id = event.target.dataset.id;
+      const status = event.target.dataset.action;
+      if (id && status) updateStatus(id, status);
+    });
+  </script>
+</body>
+</html>
