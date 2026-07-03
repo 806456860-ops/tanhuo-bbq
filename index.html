@@ -513,7 +513,7 @@
   </style>
 </head>
 <body>
-  <main class="app">
+  <main class="app" id="menuPage">
     <section class="hero">
       <div class="grill">
         <div class="skewer"></div>
@@ -563,7 +563,7 @@
     </section>
   </main>
 
-  <div class="cart-bar">
+  <div class="cart-bar" id="cartBar">
     <div class="cart-inner">
       <div class="cart-total">已选 <span id="cartCount">0</span> 份 · 合计 <b id="cartTotal">¥0</b></div>
       <button id="openCart">查看购物车</button>
@@ -600,19 +600,20 @@
     </div>
   </div>
 
-  <div class="modal center" id="resultModal">
-    <div class="sheet">
-      <div class="section-title" style="margin-top:0">
-        <span>已下单</span>
-        <small id="resultTable">--</small>
+  <main class="app" id="orderPage" hidden>
+    <section class="hero" style="min-height:180px">
+      <div class="hero-content" style="min-height:180px">
+        <h1>我的订单</h1>
+        <div class="tagline" id="resultTable">--</div>
       </div>
-      <div class="order-result" id="resultItems"></div>
-      <div class="full-actions">
-        <button id="callWaiterBtn">呼叫服务员</button>
-        <button class="secondary" id="continueOrderBtn">继续点单</button>
-      </div>
+    </section>
+    <section class="order-result" id="resultItems"></section>
+    <div class="full-actions">
+      <button class="secondary" id="continueOrderBtn">继续点单</button>
+      <button id="callWaiterBtn">呼叫服务员</button>
+      <button id="checkoutBtn">结账</button>
     </div>
-  </div>
+  </main>
 
   <div class="toast" id="toast"></div>
 
@@ -649,10 +650,12 @@
     const cartTotal = document.querySelector("#cartTotal");
     const cartModal = document.querySelector("#cartModal");
     const cartItems = document.querySelector("#cartItems");
+    const menuPage = document.querySelector("#menuPage");
+    const orderPage = document.querySelector("#orderPage");
+    const cartBar = document.querySelector("#cartBar");
     const tableModal = document.querySelector("#tableModal");
     const tableGrid = document.querySelector("#tableGrid");
     const tableLabel = document.querySelector("#tableLabel");
-    const resultModal = document.querySelector("#resultModal");
     const resultItems = document.querySelector("#resultItems");
     const resultTable = document.querySelector("#resultTable");
     const toast = document.querySelector("#toast");
@@ -690,6 +693,20 @@
       tableModal.classList.remove("show");
       renderTables();
       showToast(`已选择 ${tableNo} 号桌`);
+    }
+
+    function showMenuPage() {
+      orderPage.hidden = true;
+      menuPage.hidden = false;
+      cartBar.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showOrderPage() {
+      menuPage.hidden = true;
+      cartBar.hidden = true;
+      orderPage.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function renderTabs() {
@@ -812,7 +829,7 @@
       cartModal.classList.remove("show");
       event.target.reset();
       renderResult(payload);
-      resultModal.classList.add("show");
+      showOrderPage();
       showToast(`订单已提交：${payload.order_no}`);
     }
 
@@ -852,6 +869,34 @@
       button.disabled = false;
       button.textContent = "呼叫服务员";
       showToast(error ? `呼叫失败：${error.message}` : "已呼叫服务员");
+    }
+
+    async function requestCheckout() {
+      if (!lastOrder) {
+        showToast("还没有订单。");
+        return;
+      }
+      if (!dbReady) {
+        showToast("订单系统还没配置 Supabase。");
+        return;
+      }
+      const button = document.querySelector("#checkoutBtn");
+      button.disabled = true;
+      button.textContent = "提交中...";
+      const payload = {
+        order_no: `PAY${Date.now().toString().slice(-6)}`,
+        customer_name: `${selectedTable}号桌客人`,
+        phone: "-",
+        dining_type: `堂食 ${selectedTable}号桌`,
+        note: `${selectedTable}号桌请求结账，原订单：${lastOrder.order_no}，金额：${money(lastOrder.total)}`,
+        items: [{ id: "checkout", name: "请求结账", price: 0, count: 1, subtotal: 0 }],
+        total: 0,
+        status: "new"
+      };
+      const { error } = await db.from("orders").insert(payload);
+      button.disabled = false;
+      button.textContent = "结账";
+      showToast(error ? `结账请求失败：${error.message}` : "已通知服务员结账");
     }
 
     tabs.addEventListener("click", event => {
@@ -894,7 +939,8 @@
     });
     document.querySelector("#changeTableBtn").addEventListener("click", () => tableModal.classList.add("show"));
     document.querySelector("#callWaiterBtn").addEventListener("click", callWaiter);
-    document.querySelector("#continueOrderBtn").addEventListener("click", () => resultModal.classList.remove("show"));
+    document.querySelector("#checkoutBtn").addEventListener("click", requestCheckout);
+    document.querySelector("#continueOrderBtn").addEventListener("click", showMenuPage);
     document.querySelector("#closeCart").addEventListener("click", () => cartModal.classList.remove("show"));
     document.querySelector("#clearCart").addEventListener("click", () => { cart.clear(); renderCart(); });
     document.querySelector("#orderForm").addEventListener("submit", createOrder);
