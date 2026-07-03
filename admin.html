@@ -275,6 +275,8 @@
     let allOrders = [];
     let currentStatus = "all";
     let soundEnabled = false;
+    let ordersLoadedOnce = false;
+    let refreshTimer = null;
 
     function showToast(message) {
       toast.textContent = message;
@@ -362,7 +364,17 @@
         ordersEl.innerHTML = `<div class="panel empty">读取失败：${error.message}</div>`;
         return;
       }
-      allOrders = data || [];
+      const nextOrders = data || [];
+      if (ordersLoadedOnce) {
+        const existingIds = new Set(allOrders.map(order => order.id));
+        const newOrders = nextOrders.filter(order => !existingIds.has(order.id));
+        if (newOrders.length) {
+          beep();
+          showToast(`新订单：${newOrders[0].order_no}`);
+        }
+      }
+      allOrders = nextOrders;
+      ordersLoadedOnce = true;
       render();
     }
 
@@ -380,6 +392,7 @@
       if (!dbReady) return;
       db.channel("orders-realtime")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, payload => {
+          if (allOrders.some(order => order.id === payload.new.id)) return;
           allOrders = [payload.new, ...allOrders];
           render();
           beep();
@@ -392,6 +405,11 @@
         .subscribe();
     }
 
+    function startAutoRefresh() {
+      if (refreshTimer) return;
+      refreshTimer = window.setInterval(loadOrders, 5000);
+    }
+
     document.querySelector("#loginBtn").addEventListener("click", () => {
       const pin = document.querySelector("#pin").value.trim();
       if (pin !== String(config.ADMIN_PIN || "")) {
@@ -402,6 +420,7 @@
       app.hidden = false;
       loadOrders();
       subscribe();
+      startAutoRefresh();
     });
 
     document.querySelector("#refreshBtn").addEventListener("click", loadOrders);
