@@ -132,6 +132,8 @@
     .stat,
     .notice,
     .card,
+    .table-banner,
+    .order-result,
     .shop {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -166,6 +168,25 @@
 
     .notice b { display: block; margin-bottom: 6px; }
     .notice p { margin: 0; color: #ecd7c7; font-size: 14px; line-height: 1.55; }
+
+    .table-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 12px 14px;
+    }
+
+    .table-banner strong {
+      display: block;
+      font-size: 18px;
+    }
+
+    .table-banner span {
+      color: var(--muted);
+      font-size: 12px;
+    }
 
     .section-title {
       display: flex;
@@ -349,6 +370,11 @@
 
     .modal.show { display: flex; }
 
+    .modal.center {
+      align-items: center;
+      padding: 16px;
+    }
+
     .sheet {
       width: 100%;
       max-width: 520px;
@@ -358,6 +384,34 @@
       border-radius: 12px 12px 0 0;
       background: var(--paper);
       padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
+    }
+
+    .center .sheet {
+      border-radius: 12px;
+      max-height: 90vh;
+      padding-bottom: 18px;
+    }
+
+    .table-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .table-btn {
+      aspect-ratio: 1;
+      padding: 0;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 17px;
+    }
+
+    .table-btn.active {
+      color: #fff;
+      border-color: var(--brand);
+      background: var(--brand);
     }
 
     .cart-item {
@@ -415,6 +469,29 @@
 
     .secondary { color: var(--ink); background: #efe4d8; }
 
+    .order-result {
+      margin-top: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .result-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    .result-line:last-child { border-bottom: 0; }
+
+    .full-actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
     .toast {
       position: fixed;
       left: 50%;
@@ -462,9 +539,17 @@
       <p>双人烧烤套餐含羊肉串、牛油小串、烤茄子和冰粉。下单后商家后台会实时收到订单。</p>
     </section>
 
+    <section class="table-banner">
+      <div>
+        <strong id="tableLabel">请选择桌号</strong>
+        <span>堂食扫码点餐，先选桌号再下单</span>
+      </div>
+      <button class="secondary" id="changeTableBtn">换桌</button>
+    </section>
+
     <div class="section-title">
       <span>菜单点单</span>
-      <small>自取 / 堂食 / 周边配送</small>
+      <small>堂食扫码点餐</small>
     </div>
 
     <nav class="tabs" id="tabs"></nav>
@@ -493,19 +578,39 @@
       </div>
       <div id="cartItems"></div>
       <form class="order-form" id="orderForm">
-        <input id="customerName" autocomplete="name" placeholder="姓名 / 称呼" required>
-        <input id="customerPhone" autocomplete="tel" inputmode="tel" placeholder="手机号" required>
-        <select id="diningType">
-          <option value="到店自取">到店自取</option>
-          <option value="堂食">堂食</option>
-          <option value="周边配送">周边配送</option>
-        </select>
-        <textarea id="orderNote" placeholder="备注，例如少辣、桌号、地址"></textarea>
+        <input id="customerName" autocomplete="name" placeholder="姓名 / 称呼（可不填）">
+        <input id="customerPhone" autocomplete="tel" inputmode="tel" placeholder="手机号（可不填）">
+        <textarea id="orderNote" placeholder="备注，例如少辣、加孜然、不要香菜"></textarea>
         <div class="actions">
           <button type="button" class="secondary" id="clearCart">清空</button>
           <button type="submit" id="submitOrder">提交订单</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal center show" id="tableModal">
+    <div class="sheet">
+      <div class="section-title" style="margin-top:0">
+        <span>选择桌号</span>
+        <small>1-15 号桌</small>
+      </div>
+      <p style="margin:0;color:var(--muted);line-height:1.55">请选择你现在就坐的桌号，商家后台会按桌号出单。</p>
+      <div class="table-grid" id="tableGrid"></div>
+    </div>
+  </div>
+
+  <div class="modal center" id="resultModal">
+    <div class="sheet">
+      <div class="section-title" style="margin-top:0">
+        <span>已下单</span>
+        <small id="resultTable">--</small>
+      </div>
+      <div class="order-result" id="resultItems"></div>
+      <div class="full-actions">
+        <button id="callWaiterBtn">呼叫服务员</button>
+        <button class="secondary" id="continueOrderBtn">继续点单</button>
+      </div>
     </div>
   </div>
 
@@ -544,8 +649,16 @@
     const cartTotal = document.querySelector("#cartTotal");
     const cartModal = document.querySelector("#cartModal");
     const cartItems = document.querySelector("#cartItems");
+    const tableModal = document.querySelector("#tableModal");
+    const tableGrid = document.querySelector("#tableGrid");
+    const tableLabel = document.querySelector("#tableLabel");
+    const resultModal = document.querySelector("#resultModal");
+    const resultItems = document.querySelector("#resultItems");
+    const resultTable = document.querySelector("#resultTable");
     const toast = document.querySelector("#toast");
     const submitOrder = document.querySelector("#submitOrder");
+    let selectedTable = "";
+    let lastOrder = null;
 
     function money(value) {
       return `¥${value}`;
@@ -562,6 +675,21 @@
       const date = new Date();
       const time = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`.padStart(6, "0");
       return `BBQ${time}${Math.floor(Math.random() * 90 + 10)}`;
+    }
+
+    function renderTables() {
+      tableGrid.innerHTML = Array.from({ length: 15 }, (_, index) => {
+        const tableNo = String(index + 1);
+        return `<button class="table-btn ${selectedTable === tableNo ? "active" : ""}" data-table="${tableNo}">${tableNo}</button>`;
+      }).join("");
+    }
+
+    function selectTable(tableNo) {
+      selectedTable = tableNo;
+      tableLabel.textContent = `${tableNo} 号桌`;
+      tableModal.classList.remove("show");
+      renderTables();
+      showToast(`已选择 ${tableNo} 号桌`);
     }
 
     function renderTabs() {
@@ -638,6 +766,11 @@
         showToast("购物车还是空的。");
         return;
       }
+      if (!selectedTable) {
+        tableModal.classList.add("show");
+        showToast("请先选择桌号。");
+        return;
+      }
       if (!dbReady) {
         showToast("订单系统还没配置 Supabase。");
         return;
@@ -646,19 +779,20 @@
       submitOrder.disabled = true;
       submitOrder.textContent = "提交中...";
 
+      const items = [...cart.values()].map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        count: item.count,
+        subtotal: item.price * item.count
+      }));
       const payload = {
         order_no: orderNo(),
-        customer_name: document.querySelector("#customerName").value.trim(),
-        phone: document.querySelector("#customerPhone").value.trim(),
-        dining_type: document.querySelector("#diningType").value,
+        customer_name: document.querySelector("#customerName").value.trim() || `${selectedTable}号桌客人`,
+        phone: document.querySelector("#customerPhone").value.trim() || "-",
+        dining_type: `堂食 ${selectedTable}号桌`,
         note: document.querySelector("#orderNote").value.trim(),
-        items: [...cart.values()].map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          count: item.count,
-          subtotal: item.price * item.count
-        })),
+        items,
         total,
         status: "new"
       };
@@ -672,11 +806,52 @@
         return;
       }
 
+      lastOrder = payload;
       cart.clear();
       renderCart();
       cartModal.classList.remove("show");
       event.target.reset();
+      renderResult(payload);
+      resultModal.classList.add("show");
       showToast(`订单已提交：${payload.order_no}`);
+    }
+
+    function renderResult(order) {
+      resultTable.textContent = `${selectedTable} 号桌`;
+      resultItems.innerHTML = `
+        <div class="result-line"><strong>订单号</strong><span>${order.order_no}</span></div>
+        ${order.items.map(item => `<div class="result-line"><span>${item.name} x ${item.count}</span><strong>${money(item.subtotal)}</strong></div>`).join("")}
+        <div class="result-line"><strong>合计</strong><strong>${money(order.total)}</strong></div>
+      `;
+    }
+
+    async function callWaiter() {
+      if (!selectedTable) {
+        tableModal.classList.add("show");
+        showToast("请先选择桌号。");
+        return;
+      }
+      if (!dbReady) {
+        showToast("订单系统还没配置 Supabase。");
+        return;
+      }
+      const button = document.querySelector("#callWaiterBtn");
+      button.disabled = true;
+      button.textContent = "呼叫中...";
+      const payload = {
+        order_no: `CALL${Date.now().toString().slice(-6)}`,
+        customer_name: `${selectedTable}号桌客人`,
+        phone: "-",
+        dining_type: `堂食 ${selectedTable}号桌`,
+        note: `${selectedTable}号桌呼叫服务员`,
+        items: [{ id: "call-waiter", name: "呼叫服务员", price: 0, count: 1, subtotal: 0 }],
+        total: 0,
+        status: "new"
+      };
+      const { error } = await db.from("orders").insert(payload);
+      button.disabled = false;
+      button.textContent = "呼叫服务员";
+      showToast(error ? `呼叫失败：${error.message}` : "已呼叫服务员");
     }
 
     tabs.addEventListener("click", event => {
@@ -704,10 +879,22 @@
     });
 
     document.querySelector("#openCart").addEventListener("click", () => {
+      if (!selectedTable) {
+        tableModal.classList.add("show");
+        showToast("请先选择桌号。");
+        return;
+      }
       renderCart();
       cartModal.classList.add("show");
     });
 
+    tableGrid.addEventListener("click", event => {
+      const tableNo = event.target.dataset.table;
+      if (tableNo) selectTable(tableNo);
+    });
+    document.querySelector("#changeTableBtn").addEventListener("click", () => tableModal.classList.add("show"));
+    document.querySelector("#callWaiterBtn").addEventListener("click", callWaiter);
+    document.querySelector("#continueOrderBtn").addEventListener("click", () => resultModal.classList.remove("show"));
     document.querySelector("#closeCart").addEventListener("click", () => cartModal.classList.remove("show"));
     document.querySelector("#clearCart").addEventListener("click", () => { cart.clear(); renderCart(); });
     document.querySelector("#orderForm").addEventListener("submit", createOrder);
@@ -715,6 +902,7 @@
     renderTabs();
     renderDishes();
     renderCart();
+    renderTables();
   </script>
 </body>
 </html>
