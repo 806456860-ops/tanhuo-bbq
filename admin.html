@@ -164,6 +164,43 @@
       resize: vertical;
     }
 
+    .image-picker {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 92px;
+      border: 1px dashed #cfd3d8;
+      border-radius: 6px;
+      padding: 10px;
+      background: #fafbfc;
+    }
+
+    .image-preview {
+      display: grid;
+      place-items: center;
+      flex: 0 0 72px;
+      width: 72px;
+      height: 72px;
+      overflow: hidden;
+      border-radius: 6px;
+      color: var(--muted);
+      background: #eceff2;
+      font-size: 12px;
+    }
+
+    .image-preview img,
+    .menu-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .image-picker-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     .form-actions {
       display: flex;
       align-items: end;
@@ -391,8 +428,19 @@
           </select>
         </label>
         <label class="field">显示顺序<input id="menuSort" type="number" min="0" step="1" value="100"></label>
-        <label class="field">菜品图标字<input id="menuIcon" maxlength="2" placeholder="烤"></label>
+        <label class="field">备用图标字<input id="menuIcon" maxlength="2" placeholder="没传图片时显示"></label>
         <label class="field">角标<input id="menuBadge" maxlength="6" placeholder="招牌/热卖"></label>
+        <div class="field wide">
+          <span>菜品图片</span>
+          <div class="image-picker">
+            <div class="image-preview" id="menuImagePreview">暂无图片</div>
+            <div class="image-picker-actions">
+              <input id="menuImageFile" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+              <button type="button" id="chooseMenuImageBtn">选择图片</button>
+              <button type="button" class="secondary" id="removeMenuImageBtn" hidden>移除图片</button>
+            </div>
+          </div>
+        </div>
         <label class="field wide">菜品介绍<textarea id="menuDescription" maxlength="100" placeholder="简单介绍口味和特点"></textarea></label>
         <div class="form-actions">
           <button id="saveMenuBtn">保存菜品</button>
@@ -435,6 +483,7 @@
     let audioCtx = null;
     let currentView = "orders";
     let allMenuItems = [];
+    let menuImageData = "";
 
     function showToast(message) {
       toast.textContent = message;
@@ -455,6 +504,50 @@
       return String(value ?? "").replace(/[&<>'"]/g, char => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
       })[char]);
+    }
+
+    function isDishImage(value) {
+      return /^data:image\/(jpeg|png|webp);base64,/i.test(String(value || ""));
+    }
+
+    function renderMenuImagePreview() {
+      const preview = document.querySelector("#menuImagePreview");
+      const removeButton = document.querySelector("#removeMenuImageBtn");
+      preview.innerHTML = menuImageData
+        ? `<img src="${menuImageData}" alt="菜品图片预览">`
+        : "暂无图片";
+      removeButton.hidden = !menuImageData;
+    }
+
+    function compressDishImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !file.type.startsWith("image/")) {
+          reject(new Error("请选择图片文件"));
+          return;
+        }
+        if (file.size > 12 * 1024 * 1024) {
+          reject(new Error("图片不能超过 12MB"));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("图片读取失败"));
+        reader.onload = () => {
+          const image = new Image();
+          image.onerror = () => reject(new Error("图片格式不支持"));
+          image.onload = () => {
+            const size = Math.min(image.naturalWidth, image.naturalHeight);
+            const sourceX = Math.max(0, (image.naturalWidth - size) / 2);
+            const sourceY = Math.max(0, (image.naturalHeight - size) / 2);
+            const canvas = document.createElement("canvas");
+            canvas.width = 720;
+            canvas.height = 720;
+            canvas.getContext("2d").drawImage(image, sourceX, sourceY, size, size, 0, 0, 720, 720);
+            resolve(canvas.toDataURL("image/jpeg", .8));
+          };
+          image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
     }
 
     function unlockSound() {
@@ -588,7 +681,7 @@
       }
       menuItemsEl.innerHTML = allMenuItems.map(item => `
         <article class="menu-card ${item.active ? "" : "off"}">
-          <div class="menu-icon">${escapeHtml(item.icon || "烤")}</div>
+          <div class="menu-icon">${isDishImage(item.icon) ? `<img src="${item.icon}" alt="${escapeHtml(item.name)}">` : escapeHtml(item.icon || "烤")}</div>
           <div>
             <div class="menu-name">${escapeHtml(item.name)} ${item.badge ? `<span class="status">${escapeHtml(item.badge)}</span>` : ""}</div>
             <div class="menu-desc">${escapeHtml(item.description || "暂无介绍")}</div>
@@ -623,6 +716,9 @@
       document.querySelector("#menuIcon").value = "";
       document.querySelector("#menuBadge").value = "";
       document.querySelector("#menuDescription").value = "";
+      document.querySelector("#menuImageFile").value = "";
+      menuImageData = "";
+      renderMenuImagePreview();
       menuForm.hidden = true;
     }
 
@@ -634,9 +730,12 @@
       document.querySelector("#menuPrice").value = Number(item.price || 0);
       document.querySelector("#menuCategory").value = item.category;
       document.querySelector("#menuSort").value = item.sort_order || 0;
-      document.querySelector("#menuIcon").value = item.icon || "";
+      menuImageData = isDishImage(item.icon) ? item.icon : "";
+      document.querySelector("#menuIcon").value = menuImageData ? "" : (item.icon || "");
       document.querySelector("#menuBadge").value = item.badge || "";
       document.querySelector("#menuDescription").value = item.description || "";
+      document.querySelector("#menuImageFile").value = "";
+      renderMenuImagePreview();
       menuForm.hidden = false;
       menuForm.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -656,7 +755,7 @@
         price,
         category: document.querySelector("#menuCategory").value,
         sort_order: Number(document.querySelector("#menuSort").value || 100),
-        icon: document.querySelector("#menuIcon").value.trim() || name.slice(0, 1),
+        icon: menuImageData || document.querySelector("#menuIcon").value.trim() || name.slice(0, 1),
         badge: document.querySelector("#menuBadge").value.trim(),
         description: document.querySelector("#menuDescription").value.trim(),
         active: oldItem ? oldItem.active : true
@@ -762,6 +861,26 @@
     });
     document.querySelector("#cancelMenuBtn").addEventListener("click", resetMenuForm);
     document.querySelector("#saveMenuBtn").addEventListener("click", saveMenuItem);
+    document.querySelector("#chooseMenuImageBtn").addEventListener("click", () => document.querySelector("#menuImageFile").click());
+    document.querySelector("#menuImageFile").addEventListener("change", async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        showToast("正在处理图片");
+        menuImageData = await compressDishImage(file);
+        renderMenuImagePreview();
+        showToast("图片已选择，保存菜品后生效");
+      } catch (error) {
+        event.target.value = "";
+        showToast(error.message);
+      }
+    });
+    document.querySelector("#removeMenuImageBtn").addEventListener("click", () => {
+      menuImageData = "";
+      document.querySelector("#menuImageFile").value = "";
+      renderMenuImagePreview();
+      showToast("图片已移除，保存菜品后生效");
+    });
     menuItemsEl.addEventListener("click", event => {
       const id = event.target.dataset.id;
       const action = event.target.dataset.menuAction;
