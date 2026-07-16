@@ -539,10 +539,10 @@
             const sourceX = Math.max(0, (image.naturalWidth - size) / 2);
             const sourceY = Math.max(0, (image.naturalHeight - size) / 2);
             const canvas = document.createElement("canvas");
-            canvas.width = 720;
-            canvas.height = 720;
-            canvas.getContext("2d").drawImage(image, sourceX, sourceY, size, size, 0, 0, 720, 720);
-            resolve(canvas.toDataURL("image/jpeg", .8));
+            canvas.width = 360;
+            canvas.height = 360;
+            canvas.getContext("2d").drawImage(image, sourceX, sourceY, size, size, 0, 0, 360, 360);
+            resolve(canvas.toDataURL("image/jpeg", .72));
           };
           image.src = reader.result;
         };
