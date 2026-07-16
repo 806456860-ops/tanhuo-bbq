@@ -29,7 +29,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
-    button, input { font: inherit; }
+    button, input, select, textarea { font: inherit; }
 
     .wrap {
       max-width: 980px;
@@ -102,6 +102,109 @@
       gap: 8px;
       margin-bottom: 14px;
     }
+
+    .main-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+
+    .main-tab {
+      color: var(--muted);
+      background: #eef0f3;
+    }
+
+    .main-tab.active {
+      color: #fff;
+      background: #1f2328;
+    }
+
+    .menu-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .menu-form {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .field.wide { grid-column: span 2; }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    .field textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    .form-actions {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .menu-card {
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .menu-card.off { opacity: .58; }
+
+    .menu-icon {
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 6px;
+      color: #fff;
+      background: #9e432c;
+      font-size: 26px;
+      font-weight: 900;
+    }
+
+    .menu-name { font-size: 16px; font-weight: 900; }
+    .menu-desc { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .menu-price { margin-top: 7px; color: var(--brand); font-weight: 900; }
+    .menu-actions { display: grid; gap: 7px; }
+    .menu-actions button { min-width: 68px; }
 
     .pill {
       border-radius: 999px;
@@ -220,6 +323,12 @@
       header { align-items: flex-start; flex-direction: column; }
       .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .wrap { padding: 12px; }
+      .menu-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .field.wide { grid-column: span 2; }
+      .menu-grid { grid-template-columns: 1fr; }
+      .menu-card { grid-template-columns: 54px 1fr; }
+      .menu-icon { width: 54px; height: 54px; }
+      .menu-actions { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -234,7 +343,7 @@
   <main class="wrap" id="app" hidden>
     <header>
       <div>
-        <h1>炭火小巷订单</h1>
+        <h1>炭火小巷商家后台</h1>
         <div class="sub" id="summary">正在加载订单</div>
       </div>
       <div class="toolbar">
@@ -243,15 +352,55 @@
       </div>
     </header>
 
-    <nav class="toolbar" id="filters">
-      <button class="pill active" data-status="all">全部</button>
-      <button class="pill" data-status="new">新订单</button>
-      <button class="pill" data-status="accepted">已接单</button>
-      <button class="pill" data-status="done">已完成</button>
-      <button class="pill" data-status="cancelled">已取消</button>
+    <nav class="main-tabs" id="mainTabs">
+      <button class="main-tab active" data-view="orders">订单管理</button>
+      <button class="main-tab" data-view="menu">菜品管理</button>
     </nav>
 
-    <section class="grid" id="orders"></section>
+    <section id="ordersView">
+      <nav class="toolbar" id="filters">
+        <button class="pill active" data-status="all">全部</button>
+        <button class="pill" data-status="new">新订单</button>
+        <button class="pill" data-status="accepted">已接单</button>
+        <button class="pill" data-status="done">已完成</button>
+        <button class="pill" data-status="cancelled">已取消</button>
+      </nav>
+      <section class="grid" id="orders"></section>
+    </section>
+
+    <section id="menuView" hidden>
+      <div class="menu-head">
+        <div>
+          <h2 style="margin:0;font-size:19px">菜品管理</h2>
+          <div class="sub" id="menuSummary">正在加载菜品</div>
+        </div>
+        <button id="addMenuBtn">新增菜品</button>
+      </div>
+
+      <section class="panel menu-form" id="menuForm" hidden>
+        <input type="hidden" id="menuId">
+        <label class="field">菜品名称<input id="menuName" maxlength="30" placeholder="例如：烤羊肉串"></label>
+        <label class="field">价格（元）<input id="menuPrice" type="number" min="0" step="1" placeholder="18"></label>
+        <label class="field">分类
+          <select id="menuCategory">
+            <option value="skewer">串烧</option>
+            <option value="veg">素烤</option>
+            <option value="snack">小食</option>
+            <option value="drink">饮品</option>
+          </select>
+        </label>
+        <label class="field">显示顺序<input id="menuSort" type="number" min="0" step="1" value="100"></label>
+        <label class="field">菜品图标字<input id="menuIcon" maxlength="2" placeholder="烤"></label>
+        <label class="field">角标<input id="menuBadge" maxlength="6" placeholder="招牌/热卖"></label>
+        <label class="field wide">菜品介绍<textarea id="menuDescription" maxlength="100" placeholder="简单介绍口味和特点"></textarea></label>
+        <div class="form-actions">
+          <button id="saveMenuBtn">保存菜品</button>
+          <button class="secondary" id="cancelMenuBtn">取消</button>
+        </div>
+      </section>
+
+      <section class="menu-grid" id="menuItems"></section>
+    </section>
   </main>
 
   <div class="toast" id="toast"></div>
@@ -270,6 +419,11 @@
     const login = document.querySelector("#login");
     const app = document.querySelector("#app");
     const ordersEl = document.querySelector("#orders");
+    const ordersView = document.querySelector("#ordersView");
+    const menuView = document.querySelector("#menuView");
+    const menuItemsEl = document.querySelector("#menuItems");
+    const menuSummary = document.querySelector("#menuSummary");
+    const menuForm = document.querySelector("#menuForm");
     const summary = document.querySelector("#summary");
     const toast = document.querySelector("#toast");
     let allOrders = [];
@@ -278,6 +432,8 @@
     let ordersLoadedOnce = false;
     let refreshTimer = null;
     let audioCtx = null;
+    let currentView = "orders";
+    let allMenuItems = [];
 
     function showToast(message) {
       toast.textContent = message;
@@ -292,6 +448,12 @@
 
     function fmtTime(value) {
       return new Date(value).toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+      })[char]);
     }
 
     function unlockSound() {
@@ -416,6 +578,111 @@
       render();
     }
 
+    function renderMenu() {
+      const activeCount = allMenuItems.filter(item => item.active).length;
+      menuSummary.textContent = `共 ${allMenuItems.length} 个菜品，已上架 ${activeCount} 个`;
+      if (!allMenuItems.length) {
+        menuItemsEl.innerHTML = `<div class="panel empty">暂无菜品，点击“新增菜品”开始添加</div>`;
+        return;
+      }
+      menuItemsEl.innerHTML = allMenuItems.map(item => `
+        <article class="menu-card ${item.active ? "" : "off"}">
+          <div class="menu-icon">${escapeHtml(item.icon || "烤")}</div>
+          <div>
+            <div class="menu-name">${escapeHtml(item.name)} ${item.badge ? `<span class="status">${escapeHtml(item.badge)}</span>` : ""}</div>
+            <div class="menu-desc">${escapeHtml(item.description || "暂无介绍")}</div>
+            <div class="menu-price">${money(item.price)} · ${item.active ? "已上架" : "已下架"}</div>
+          </div>
+          <div class="menu-actions">
+            <button class="secondary" data-menu-action="edit" data-id="${escapeHtml(item.id)}">修改</button>
+            <button class="${item.active ? "bad" : "ok"}" data-menu-action="toggle" data-id="${escapeHtml(item.id)}">${item.active ? "下架" : "上架"}</button>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    async function loadMenu() {
+      if (!dbReady) return;
+      const { data, error } = await db.from("menu_items").select("*").order("sort_order", { ascending: true });
+      if (error) {
+        menuItemsEl.innerHTML = `<div class="panel empty">菜品表尚未创建：${escapeHtml(error.message)}</div>`;
+        menuSummary.textContent = "菜品管理尚未初始化";
+        return;
+      }
+      allMenuItems = data || [];
+      renderMenu();
+    }
+
+    function resetMenuForm() {
+      document.querySelector("#menuId").value = "";
+      document.querySelector("#menuName").value = "";
+      document.querySelector("#menuPrice").value = "";
+      document.querySelector("#menuCategory").value = "skewer";
+      document.querySelector("#menuSort").value = "100";
+      document.querySelector("#menuIcon").value = "";
+      document.querySelector("#menuBadge").value = "";
+      document.querySelector("#menuDescription").value = "";
+      menuForm.hidden = true;
+    }
+
+    function editMenuItem(id) {
+      const item = allMenuItems.find(menuItem => menuItem.id === id);
+      if (!item) return;
+      document.querySelector("#menuId").value = item.id;
+      document.querySelector("#menuName").value = item.name;
+      document.querySelector("#menuPrice").value = Number(item.price || 0);
+      document.querySelector("#menuCategory").value = item.category;
+      document.querySelector("#menuSort").value = item.sort_order || 0;
+      document.querySelector("#menuIcon").value = item.icon || "";
+      document.querySelector("#menuBadge").value = item.badge || "";
+      document.querySelector("#menuDescription").value = item.description || "";
+      menuForm.hidden = false;
+      menuForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function saveMenuItem() {
+      const existingId = document.querySelector("#menuId").value;
+      const name = document.querySelector("#menuName").value.trim();
+      const price = Number(document.querySelector("#menuPrice").value);
+      if (!name || !Number.isFinite(price) || price < 0) {
+        showToast("请填写菜品名称和正确价格");
+        return;
+      }
+      const oldItem = allMenuItems.find(item => item.id === existingId);
+      const payload = {
+        id: existingId || `dish-${Date.now()}`,
+        name,
+        price,
+        category: document.querySelector("#menuCategory").value,
+        sort_order: Number(document.querySelector("#menuSort").value || 100),
+        icon: document.querySelector("#menuIcon").value.trim() || name.slice(0, 1),
+        badge: document.querySelector("#menuBadge").value.trim(),
+        description: document.querySelector("#menuDescription").value.trim(),
+        active: oldItem ? oldItem.active : true
+      };
+      const { error } = await db.from("menu_items").upsert(payload);
+      if (error) {
+        showToast(`保存失败：${error.message}`);
+        return;
+      }
+      resetMenuForm();
+      await loadMenu();
+      showToast("菜品已保存");
+    }
+
+    async function toggleMenuItem(id) {
+      const item = allMenuItems.find(menuItem => menuItem.id === id);
+      if (!item) return;
+      const { error } = await db.from("menu_items").update({ active: !item.active }).eq("id", id);
+      if (error) {
+        showToast(`操作失败：${error.message}`);
+        return;
+      }
+      item.active = !item.active;
+      renderMenu();
+      showToast(item.active ? "菜品已上架" : "菜品已下架");
+    }
+
     function subscribe() {
       if (!dbReady) return;
       db.channel("orders-realtime")
@@ -447,11 +714,12 @@
       app.hidden = false;
       unlockSound();
       loadOrders();
+      loadMenu();
       subscribe();
       startAutoRefresh();
     });
 
-    document.querySelector("#refreshBtn").addEventListener("click", loadOrders);
+    document.querySelector("#refreshBtn").addEventListener("click", () => currentView === "orders" ? loadOrders() : loadMenu());
     document.querySelector("#soundBtn").addEventListener("click", event => {
       soundEnabled = !soundEnabled;
       event.target.textContent = soundEnabled ? "声音已开" : "开启声音";
@@ -474,6 +742,30 @@
       const id = event.target.dataset.id;
       const status = event.target.dataset.action;
       if (id && status) updateStatus(id, status);
+    });
+
+    document.querySelector("#mainTabs").addEventListener("click", event => {
+      const view = event.target.dataset.view;
+      if (!view) return;
+      currentView = view;
+      ordersView.hidden = view !== "orders";
+      menuView.hidden = view !== "menu";
+      document.querySelectorAll(".main-tab").forEach(button => button.classList.toggle("active", button.dataset.view === view));
+      summary.textContent = view === "orders" ? `共 ${allOrders.length} 单，新订单 ${allOrders.filter(order => order.status === "new").length} 单` : "修改菜品后，小程序会读取最新菜单";
+      if (view === "menu") loadMenu();
+    });
+
+    document.querySelector("#addMenuBtn").addEventListener("click", () => {
+      resetMenuForm();
+      menuForm.hidden = false;
+    });
+    document.querySelector("#cancelMenuBtn").addEventListener("click", resetMenuForm);
+    document.querySelector("#saveMenuBtn").addEventListener("click", saveMenuItem);
+    menuItemsEl.addEventListener("click", event => {
+      const id = event.target.dataset.id;
+      const action = event.target.dataset.menuAction;
+      if (id && action === "edit") editMenuItem(id);
+      if (id && action === "toggle") toggleMenuItem(id);
     });
   </script>
 </body>
